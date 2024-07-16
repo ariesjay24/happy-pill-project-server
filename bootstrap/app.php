@@ -1,5 +1,7 @@
 <?php
 
+use Dotenv\Dotenv;
+
 /*
 |--------------------------------------------------------------------------
 | Create The Application
@@ -14,6 +16,20 @@
 $app = new Illuminate\Foundation\Application(
     $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
 );
+
+/*
+|--------------------------------------------------------------------------
+| Load Environment Variables
+|--------------------------------------------------------------------------
+|
+| Here we will load the environment variables from the .env file using
+| the vlucas/phpdotenv package. This will ensure that the environment
+| variables are available throughout the application.
+|
+*/
+
+$dotenv = Dotenv::createImmutable($app->environmentPath(), $app->environmentFile());
+$dotenv->safeLoad();
 
 /*
 |--------------------------------------------------------------------------

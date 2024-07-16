@@ -20,7 +20,12 @@ class Booking extends Model
         'AddOns',
         'Price',
         'Status',
-        'payment_status', 
+        'payment_status',
+        'PaymentID', // Existing field
+    ];
+
+    protected $casts = [
+        'AddOns' => 'array',
     ];
 
     public function user()

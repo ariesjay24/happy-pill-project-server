@@ -1,19 +1,19 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\{
     UserController,
-    PhotographerController,
     ServiceController,
     AvailabilityController,
     BookingController,
     ReviewController,
     CommunicationController,
-    FAQController,
     AdminDashboardController,
     AdminBookingController,
-    AddOnController
+    AddOnController,
+    ChatController,
+    SmsController,
+    PaymentController
 };
 
 // Public routes
@@ -25,16 +25,9 @@ Route::get('/add_ons', [AddOnController::class, 'index']);
 Route::get('/add_ons/{id}', [AddOnController::class, 'show']);
 
 // Protected routes
-Route::group(['middleware' => ['auth:sanctum']], function() {
+Route::middleware(['auth:sanctum'])->group(function() {
     // Logout route
     Route::post('/logout', [UserController::class, 'logout']);
-
-    // Photographer routes
-    Route::get('/photographers', [PhotographerController::class, 'index']);
-    Route::get('/photographers/{id}', [PhotographerController::class, 'show']);
-    Route::post('/photographers', [PhotographerController::class, 'store']);
-    Route::put('/photographers/{id}', [PhotographerController::class, 'update']);
-    Route::delete('/photographers/{id}', [PhotographerController::class, 'destroy']);
 
     // Service routes
     Route::get('/services', [ServiceController::class, 'index']);
@@ -48,6 +41,11 @@ Route::group(['middleware' => ['auth:sanctum']], function() {
     Route::post('/availabilities', [AvailabilityController::class, 'store']);
     Route::delete('/availabilities/{date}', [AvailabilityController::class, 'destroy'])->middleware('role:Admin');
 
+    // Payment routes
+    Route::post('/payment/initiate', [PaymentController::class, 'initiatePayment']);
+    Route::post('/payment/confirm', [PaymentController::class, 'confirmPayment']);
+    Route::post('/create-payment-source', [PaymentController::class, 'createPaymentSource']);
+
     // Booking routes
     Route::get('/bookings', [BookingController::class, 'index']);
     Route::get('/bookings/{id}', [BookingController::class, 'show']);
@@ -55,7 +53,9 @@ Route::group(['middleware' => ['auth:sanctum']], function() {
     Route::put('/bookings/{id}', [BookingController::class, 'update']);
     Route::delete('/bookings/{id}', [BookingController::class, 'destroy']);
     Route::put('/bookings/confirm/{id}', [BookingController::class, 'confirm']);
-    Route::post('/bookings/{id}/initiate-payment', [BookingController::class, 'initiatePayment']); // Payment initiation route
+    Route::post('/bookings/{id}/initiate-payment', [BookingController::class, 'initiatePayment']);
+    Route::post('/payment/callback', [BookingController::class, 'handlePaymentCallback']);
+    Route::post('/create-payment-request', [BookingController::class, 'createPaymentRequest']);
 
     // Review routes
     Route::get('/reviews', [ReviewController::class, 'index']);
@@ -71,12 +71,13 @@ Route::group(['middleware' => ['auth:sanctum']], function() {
     Route::put('/communications/{id}', [CommunicationController::class, 'update']);
     Route::delete('/communications/{id}', [CommunicationController::class, 'destroy']);
 
-    // FAQ routes
-    Route::get('/faqs', [FAQController::class, 'index']);
-    Route::get('/faqs/{id}', [FAQController::class, 'show']);
-    Route::post('/faqs', [FAQController::class, 'store']);
-    Route::put('/faqs/{id}', [FAQController::class, 'update']);
-    Route::delete('/faqs/{id}', [FAQController::class, 'destroy']);
+    // Sms routes
+    Route::post('/send-sms', [SmsController::class, 'sendSms']);
+
+    // Message routes
+    Route::get('/current-user', [UserController::class, 'currentUser']);
+    Route::get('/messages', [ChatController::class, 'fetchMessages']);
+    Route::post('/messages', [ChatController::class, 'sendMessage']);
 
     // Admin-specific routes
     Route::middleware(['role:Admin'])->group(function () {
@@ -100,4 +101,10 @@ Route::group(['middleware' => ['auth:sanctum']], function() {
     Route::post('/add_ons', [AddOnController::class, 'store'])->middleware('role:Admin');
     Route::put('/add_ons/{id}', [AddOnController::class, 'update'])->middleware('role:Admin');
     Route::delete('/add_ons/{id}', [AddOnController::class, 'destroy'])->middleware('role:Admin');
+});
+
+// Add the broadcasting routes here
+Broadcast::routes(['middleware' => ['auth:sanctum']]);
+Broadcast::channel('chat', function ($user) {
+    return Auth::check();
 });

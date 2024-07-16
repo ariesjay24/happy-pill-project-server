@@ -53,4 +53,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(Photographer::class, 'UserID');
     }
+    
+    public function messages()
+    {
+        return $this->hasMany(Message::class, 'UserID');
+    }
 }

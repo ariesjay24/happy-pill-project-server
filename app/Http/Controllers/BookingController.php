@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use GuzzleHttp\Client;
 
 class BookingController extends Controller
 {
@@ -143,14 +144,30 @@ class BookingController extends Controller
     {
         try {
             $booking = Booking::findOrFail($id);
-            $amount = $booking->Price;
+            $amount = $booking->Price * 100; // Convert to cents
 
-            // Initiate payment with GCash (mocked response for now)
-            $gcashResponse = $this->initiateGcashPayment($amount);
+            $client = new Client();
+            $response = $client->post('https://api.paymongo.com/v1/sources', [
+                'auth' => [env('PAYMONGO_SECRET_KEY'), ''],
+                'json' => [
+                    'data' => [
+                        'attributes' => [
+                            'amount' => $amount,
+                            'redirect' => [
+                                'success' => env('PAYMENT_SUCCESS_URL'),
+                                'failed' => env('PAYMENT_FAILED_URL'),
+                            ],
+                            'type' => 'gcash',
+                            'currency' => 'PHP',
+                        ],
+                    ],
+                ],
+            ]);
 
-            if ($gcashResponse['status'] === 'success') {
-                // Update booking with payment initiation details if necessary
-                return response()->json(['paymentUrl' => $gcashResponse['data']['paymentUrl']]);
+            $data = json_decode($response->getBody()->getContents(), true);
+
+            if (isset($data['data']['attributes']['redirect']['checkout_url'])) {
+                return response()->json(['paymentUrl' => $data['data']['attributes']['redirect']['checkout_url']]);
             } else {
                 return response()->json(['error' => 'Failed to initiate payment'], 500);
             }
@@ -176,16 +193,5 @@ class BookingController extends Controller
             Log::error('Error handling payment callback:', ['message' => $e->getMessage()]);
             return response()->json(['error' => 'Failed to update payment status'], 500);
         }
-    }
-
-    private function initiateGcashPayment($amount)
-    {
-        // This is a mocked response. Replace it with actual API call to GCash.
-        return [
-            'status' => 'success',
-            'data' => [
-                'paymentUrl' => 'https://gcash.com/pay'
-            ]
-        ];
     }
 }

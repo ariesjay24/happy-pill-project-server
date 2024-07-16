@@ -15,10 +15,11 @@ return new class extends Migration
             $table->date('BookingDate');
             $table->time('BookingTime')->nullable();
             $table->string('Location');
-            $table->json('AddOns')->nullable(); // New field for add-ons
-            $table->decimal('Price', 8, 2)->default(0); // New field for price
+            $table->json('AddOns')->nullable(); // Field for add-ons
+            $table->decimal('Price', 8, 2)->default(0); // Field for price
             $table->enum('Status', ['Pending', 'Confirmed', 'Cancelled']);
-            $table->string('payment_status')->default('Unpaid'); // New field for payment status
+            $table->string('payment_status')->default('Unpaid'); // Field for payment status
+            $table->string('PaymentID')->nullable(); // New field for payment ID
             $table->timestamps();
 
             $table->foreign('UserID')->references('UserID')->on('users')->onDelete('cascade');
@@ -26,7 +27,7 @@ return new class extends Migration
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::dropIfExists('bookings');
     }

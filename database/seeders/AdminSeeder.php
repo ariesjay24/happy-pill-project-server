@@ -19,7 +19,7 @@ class AdminSeeder extends Seeder
             'FirstName' => 'Jhun',
             'LastName' => 'Leowin',
             'Email' => 'jhunleowin@gmail.com', // Use a unique email address
-            'PhoneNumber' => '1234567890',
+            'PhoneNumber' => '09474863546',
             'Password' => Hash::make('qwerty123'), // Use a secure password
             'Role' => 'Admin',
             'Address' => 'Cielito Homes',

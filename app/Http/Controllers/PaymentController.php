@@ -3,81 +3,71 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use GuzzleHttp\Client;
-use App\Models\Booking;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class PaymentController extends Controller
 {
-    private $gcashUrl = 'https://api.gcash.com'; // GCash API URL
-    private $clientId = 'your_gcash_client_id';
-    private $clientSecret = 'your_gcash_client_secret';
+    private $magpieUrl = 'https://developer.magpie.im/v2'; // Magpie API URL
 
-    public function initiatePayment(Request $request)
+    public function createPaymentSource(Request $request)
     {
-        $bookingId = $request->input('booking_id');
-        $amount = $request->input('amount');
+        // Log the entire request data
+        Log::info('Incoming request data:', $request->all());
 
-        $booking = Booking::find($bookingId);
-        if (!$booking) {
-            return response()->json(['error' => 'Booking not found'], 404);
-        }
-
-        $client = new Client();
-
-        try {
-            $response = $client->post($this->gcashUrl . '/payment/initiate', [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $this->getAccessToken(),
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => [
-                    'amount' => $amount,
-                    'currency' => 'PHP',
-                    'description' => 'Booking payment for ' . $booking->id,
-                    'callback_url' => url('/api/payment/confirm'),
-                ],
-            ]);
-
-            $responseData = json_decode($response->getBody(), true);
-
-            return response()->json($responseData, 200);
-        } catch (\Exception $e) {
-            Log::error('Error initiating payment: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to initiate payment'], 500);
-        }
-    }
-
-    public function confirmPayment(Request $request)
-    {
-        $transactionId = $request->input('transaction_id');
-        $bookingId = $request->input('booking_id');
-        $status = $request->input('status');
-
-        $booking = Booking::find($bookingId);
-        if (!$booking) {
-            return response()->json(['error' => 'Booking not found'], 404);
-        }
-
-        $booking->payment_status = $status == 'success' ? 'Paid' : 'Failed';
-        $booking->save();
-
-        return response()->json(['message' => 'Payment status updated'], 200);
-    }
-
-    private function getAccessToken()
-    {
-        $client = new Client();
-
-        $response = $client->post($this->gcashUrl . '/oauth/token', [
-            'form_params' => [
-                'grant_type' => 'client_credentials',
-                'client_id' => $this->clientId,
-                'client_secret' => $this->clientSecret,
-            ],
+        // Validate the request data
+        $request->validate([
+            'type' => 'required|string',
+            'amount' => 'required|integer|min:1',
+            'currency' => 'required|string',
+            'description' => 'required|string',
+            'statement_descriptor' => 'required|string|max:15', // Ensure it fits the character limit
+            'owner.email' => 'required|string|email',
+            'owner.name' => 'required|string',
         ]);
 
-        $data = json_decode($response->getBody(), true);
-        return $data['access_token'];
+        // Construct the payload
+        $payload = [
+            'type' => $request->input('type', 'paymaya'),
+            'amount' => $request->input('amount'),
+            'currency' => $request->input('currency', 'PHP'),
+            'description' => $request->input('description', 'Booking Payment'),
+            'statement_descriptor' => $request->input('statement_descriptor', 'HPPill'),
+            'owner' => [
+                'email' => $request->input('owner.email'),
+                'name' => $request->input('owner.name'),
+            ],
+            'redirect' => [
+                'success' => env('PAYMENT_SUCCESS_URL'),
+                'failed' => env('PAYMENT_FAILED_URL'),
+            ]
+        ];
+
+        Log::info('Creating payment source with payload:', $payload);
+
+        try {
+            $response = Http::withBasicAuth(env('MAGPIE_SECRET_KEY'), '')
+                ->post($this->magpieUrl . '/sources', $payload);
+
+            Log::info('Magpie API Response', ['response' => $response->body()]);
+
+            if ($response->successful()) {
+                return response()->json(['source' => $response->json()], 201);
+            } else {
+                Log::error('Failed to create payment source', ['response' => $response->body(), 'request' => $payload]);
+                return response()->json([
+                    'error' => 'Failed to create payment source',
+                    'details' => $response->body(),
+                    'request' => $payload
+                ], $response->status());
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception while creating payment source', ['message' => $e->getMessage(), 'request' => $payload]);
+            return response()->json([
+                'error' => 'RequestException',
+                'details' => $e->getMessage(),
+                'request' => $payload
+            ], 500);
+        }
     }
 }

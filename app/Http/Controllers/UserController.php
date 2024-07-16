@@ -11,32 +11,40 @@ class UserController extends Controller
 {
     public function register(Request $request)
     {
-        $fields = $request->validate([
-            'FirstName' => 'required|string',
-            'LastName' => 'required|string',
-            'Email' => 'required|string|unique:users,Email|email',
-            'PhoneNumber' => 'required|string',
-            'Password' => 'required|string',
-            'Role' => 'required|string|in:Client,Photographer',
-            'Address' => 'nullable|string',
-        ]);
+        try {
+            $fields = $request->validate([
+                'FirstName' => 'required|string',
+                'LastName' => 'required|string',
+                'Email' => 'required|string|unique:users,Email|email',
+                'PhoneNumber' => 'required|string',
+                'Password' => 'required|string',
+                'Role' => 'required|string|in:Client,Photographer',
+                'Address' => 'nullable|string',
+            ]);
 
-        $user = new User();
-        $user->FirstName = $fields['FirstName'];
-        $user->LastName = $fields['LastName'];
-        $user->Email = $fields['Email'];
-        $user->PhoneNumber = $fields['PhoneNumber'];
-        $user->Password = Hash::make($fields['Password']);
-        $user->Address = $fields['Address'];
-        $user->Role = $fields['Role'];
-        $user->save();
+            // Ensure the phone number is in the correct format
+            $phoneNumber = $this->formatPhoneNumber($fields['PhoneNumber']);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+            $user = new User();
+            $user->FirstName = $fields['FirstName'];
+            $user->LastName = $fields['LastName'];
+            $user->Email = $fields['Email'];
+            $user->PhoneNumber = $phoneNumber;
+            $user->Password = Hash::make($fields['Password']);
+            $user->Address = $fields['Address'];
+            $user->Role = $fields['Role'];
+            $user->save();
 
-        return response([
-            'user' => $user,
-            'token' => $token,
-        ], 201);
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response([
+                'user' => $user,
+                'token' => $token,
+            ], 201);
+        } catch (\Exception $e) {
+            \Log::error("Registration failed: " . $e->getMessage());
+            return response()->json(['message' => 'Registration failed', 'error' => $e->getMessage()], 500);
+        }
     }
 
     public function registerAdmin(Request $request)
@@ -56,11 +64,14 @@ class UserController extends Controller
             "Address" => "nullable|string"
         ]);
 
+        // Ensure the phone number is in the correct format
+        $phoneNumber = $this->formatPhoneNumber($fields['PhoneNumber']);
+
         $user = new User();
         $user->FirstName = $fields["FirstName"];
         $user->LastName = $fields["LastName"];
         $user->Email = $fields["Email"];
-        $user->PhoneNumber = $fields["PhoneNumber"];
+        $user->PhoneNumber = $phoneNumber;
         $user->Password = Hash::make($fields["Password"]);
         $user->Address = $fields["Address"];
         $user->Role = $fields["Role"];
@@ -69,6 +80,21 @@ class UserController extends Controller
         return response([
             "user" => $user,
         ], 201);
+    }
+
+    private function formatPhoneNumber($phoneNumber)
+    {
+        // Remove all non-numeric characters
+        $phoneNumber = preg_replace('/\D/', '', $phoneNumber);
+
+        // Ensure it starts with the correct format for the Philippines (09XXXXXXXXX)
+        if (substr($phoneNumber, 0, 2) == '63') {
+            $phoneNumber = '0' . substr($phoneNumber, 2);
+        } elseif (substr($phoneNumber, 0, 1) != '0') {
+            $phoneNumber = '0' . $phoneNumber;
+        }
+
+        return $phoneNumber;
     }
 
     public function login(Request $request)
@@ -97,5 +123,10 @@ class UserController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response(['message' => 'Logged out'], 200);
+    }
+
+    public function currentUser(Request $request)
+    {
+        return response()->json(Auth::user());
     }
 }
