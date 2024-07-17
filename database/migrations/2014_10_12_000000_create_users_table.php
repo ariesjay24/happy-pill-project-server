@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('PhoneNumber', 20);
             $table->string('Password');
             $table->string('Address', 255)->nullable();
-            $table->enum('Role', ['Client', 'Photographer', 'Admin']);
+            $table->enum('Role', ['Client', 'Admin']);
             $table->timestamps();
         });
     }

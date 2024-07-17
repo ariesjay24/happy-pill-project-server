@@ -65,19 +65,19 @@ class ServiceSeeder extends Seeder
                 'isAddOn' => false,
             ],
             [
-                'Name' => 'BIRTHDAY & CHRISTENING PACKAGE 1',
+                'Name' => 'B/C PACKAGE 1',
                 'Description' => "- 5K PACKAGE\n- (ADD 3500 FOR PRE BDAY SHOOT PHOTO)\n- 1 PHOTOGRAPHER WHOLE EVENT\n- ALL RAW / SELECTED HIGHLIGHTS EDITED PHOTOS\n- ALL ITEMS WILL BE SENT THROUGH GDRIVE",
                 'Price' => 5000,
                 'isAddOn' => false,
             ],
             [
-                'Name' => 'BIRTHDAY & CHRISTENING PACKAGE 2',
+                'Name' => 'B/C PACKAGE 2',
                 'Description' => "- 10K PACKAGE\n- (ADD 3500 FOR PRE BDAY SHOOT PHOTO)\n- 1 PHOTOGRAPHER WHOLE EVENT\n- FULL VIDEO\n- ALL RAW / SELECTED HIGHLIGHTS EDITED PHOTOS\n- ALL ITEMS WILL BE SENT THROUGH GDRIVE",
                 'Price' => 10000,
                 'isAddOn' => false,
             ],
             [
-                'Name' => 'BIRTHDAY & CHRISTENING PACKAGE 3',
+                'Name' => 'B/C PACKAGE 3',
                 'Description' => "- 15K PACKAGE\n- (ADD 3500 FOR PRE BDAY SHOOT PHOTO)\n- 1 PHOTOGRAPHER WHOLE EVENT\n- ALL RAW / SELECTED HIGHLIGHTS EDITED PHOTOS\n- FULL VIDEO AND HIGHLIGHTS VIDEO\n- ALL ITEMS WILL BE SENT THROUGH GDRIVE",
                 'Price' => 15000,
                 'isAddOn' => false,
@@ -101,13 +101,13 @@ class ServiceSeeder extends Seeder
                 'isAddOn' => true,
             ],
             [
-                'Name' => 'ALBUM 20 PAGES',
+                'Name' => 'ALBUM',
                 'Description' => "20 Pages Album",
                 'Price' => 5000,
                 'isAddOn' => true,
             ],
             [
-                'Name' => 'FRAME 16X20 BLOW UP',
+                'Name' => 'FRAME',
                 'Description' => "16x20 Blow Up Frame",
                 'Price' => 1500,
                 'isAddOn' => true,
