@@ -18,9 +18,9 @@ class AdminSeeder extends Seeder
         User::create([
             'FirstName' => 'Jhun',
             'LastName' => 'Leowin',
-            'Email' => 'jhunleowin@gmail.com', // Use a unique email address
+            'Email' => 'jhunleowin@gmail123.com', 
             'PhoneNumber' => '09474863546',
-            'Password' => Hash::make('qwerty123'), // Use a secure password
+            'Password' => Hash::make('Qwerty123!'), 
             'Role' => 'Admin',
             'Address' => 'Cielito Homes',
         ]);
