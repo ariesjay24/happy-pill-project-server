@@ -23,7 +23,7 @@ class SemaphoreService
             $number = $this->formatPhoneNumber($number);
 
             // Use the default sender name "SEMAPHORE"
-            $senderName = 'SEMAPHORE';
+            $senderName = 'HappyPill';
 
             $response = $this->client->post('https://api.semaphore.co/api/v4/messages', [
                 'form_params' => [

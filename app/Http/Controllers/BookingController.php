@@ -7,10 +7,17 @@ use App\Models\User;
 use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Services\SemaphoreService;
 use GuzzleHttp\Client;
 
 class BookingController extends Controller
 {
+    protected $semaphoreService;
+
+    public function __construct(SemaphoreService $semaphoreService)
+    {
+        $this->semaphoreService = $semaphoreService;
+    }
     public function index()
     {
         $bookings = Booking::with(['user', 'service'])->get();
@@ -49,7 +56,15 @@ class BookingController extends Controller
             foreach ($addOns as $addOn) {
                 $totalPrice += $addOn->Price;
             }
-        }
+        
+        $user = User::find($booking->UserID);
+        $message = "Thank you for your booking, {$user->FirstName}. Your booking for {$service->Name} on {$booking->BookingDate} at {$booking->BookingTime} is confirmed.";
+        $this->semaphoreService->sendSms($user->PhoneNumber, $message);
+
+        return response()->json([
+            'booking' => $booking,
+        ], 201);
+    }
 
         $booking = Booking::create([
             'UserID' => $user->UserID,
@@ -112,6 +127,11 @@ class BookingController extends Controller
         $booking->Location = $request->Location ?? $booking->Location;
         $booking->save();
 
+                // Send SMS notification after booking is updated
+                $user = User::find($booking->UserID);
+                $message = "Dear {$user->FirstName}, your booking for {$service->Name} on {$booking->BookingDate} at {$booking->BookingTime} has been updated.";
+                $this->semaphoreService->sendSms($user->PhoneNumber, $message);
+
         return response()->json([
             "booking" => $booking,
         ], 200);
@@ -133,6 +153,11 @@ class BookingController extends Controller
             $booking = Booking::findOrFail($id);
             $booking->Status = 'Confirmed';
             $booking->save();
+
+                        // Send SMS notification after booking is confirmed
+                        $user = User::find($booking->UserID);
+                        $message = "Dear {$user->FirstName}, your booking for {$booking->service->Name} on {$booking->BookingDate} at {$booking->BookingTime} has been confirmed.";
+                        $this->semaphoreService->sendSms($user->PhoneNumber, $message);
 
             return response()->json(['message' => 'Booking confirmed'], 200);
         } catch (\Exception $e) {
