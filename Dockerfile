@@ -1,4 +1,4 @@
-FROM richarvey/nginx-php-fpm:3.1.4
+FROM richarvey/nginx-php-fpm:3.1.6
 
 COPY . .
 
@@ -21,5 +21,7 @@ ENV DB_PASSWORD hHUJAzww75Gomzhxw99OhYKEg5325ZEU
 
 # Allow composer to run as root
 ENV COMPOSER_ALLOW_SUPERUSER 1
+
+RUN composer install --no-dev --optimize-autoloader
 
 CMD ["/start.sh"]
