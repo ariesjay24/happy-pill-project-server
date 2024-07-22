@@ -112,6 +112,13 @@ class ServiceSeeder extends Seeder
                 'Price' => 1500,
                 'isAddOn' => true,
             ],
+            [
+                'Name' => 'PRENUP',
+                'Description' => "Pre-photoshoot",
+                'Price' => 3000,
+                'isAddOn' => true,
+            ],
+            
         ]);
     }
 }

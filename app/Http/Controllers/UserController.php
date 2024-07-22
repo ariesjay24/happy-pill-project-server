@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -41,6 +42,11 @@ class UserController extends Controller
                 'user' => $user,
                 'token' => $token,
             ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             \Log::error("Registration failed: " . $e->getMessage());
             return response()->json(['message' => 'Registration failed', 'error' => $e->getMessage()], 500);
@@ -60,7 +66,6 @@ class UserController extends Controller
             "Email" => "required|string|unique:users,Email|email",
             "PhoneNumber" => "required|string",
             "Password" => "required|string",
-            "Role" => "required|string|in:Admin",
             "Address" => "nullable|string"
         ]);
 
@@ -74,7 +79,7 @@ class UserController extends Controller
         $user->PhoneNumber = $phoneNumber;
         $user->Password = Hash::make($fields["Password"]);
         $user->Address = $fields["Address"];
-        $user->Role = $fields["Role"];
+        $user->Role = "Admin";
         $user->save();
 
         return response([

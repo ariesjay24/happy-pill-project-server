@@ -1,17 +1,15 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Message;
 use App\Events\MessageSent;
-use Illuminate\Support\Facades\Auth;
 
 class ChatController extends Controller
 {
     public function fetchMessages()
     {
-        return response()->json(Message::with('user')->get());
+        return response()->json(Message::all());
     }
 
     public function sendMessage(Request $request)
@@ -20,11 +18,11 @@ class ChatController extends Controller
             'message' => 'required|string|max:255',
         ]);
 
-        $message = Auth::user()->messages()->create([
-            'Message' => $request->input('message')
+        $message = Message::create([
+            'message' => $request->input('message')
         ]);
 
-        broadcast(new MessageSent($message->load('user')))->toOthers();
+        broadcast(new MessageSent($message))->toOthers();
 
         return response()->json(['status' => 'Message Sent!']);
     }

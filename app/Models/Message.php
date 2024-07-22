@@ -9,12 +9,5 @@ class Message extends Model
 {
     use HasFactory;
 
-    protected $primaryKey = 'MessageID';
-
-    protected $fillable = ['Message', 'UserID'];
-
-    public function user()
-    {
-        return $this->belongsTo(User::class, 'UserID');
-    }
+    protected $fillable = ['message'];
 }
