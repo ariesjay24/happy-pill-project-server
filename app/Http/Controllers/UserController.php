@@ -22,10 +22,10 @@ class UserController extends Controller
                 'Role' => 'required|string|in:Client,Photographer',
                 'Address' => 'nullable|string',
             ]);
-
+    
             // Ensure the phone number is in the correct format
             $phoneNumber = $this->formatPhoneNumber($fields['PhoneNumber']);
-
+    
             $user = new User();
             $user->FirstName = $fields['FirstName'];
             $user->LastName = $fields['LastName'];
@@ -35,9 +35,9 @@ class UserController extends Controller
             $user->Address = $fields['Address'];
             $user->Role = $fields['Role'];
             $user->save();
-
+    
             $token = $user->createToken('auth_token')->plainTextToken;
-
+    
             return response([
                 'user' => $user,
                 'token' => $token,
@@ -52,6 +52,7 @@ class UserController extends Controller
             return response()->json(['message' => 'Registration failed', 'error' => $e->getMessage()], 500);
         }
     }
+    
 
     public function registerAdmin(Request $request)
     {
@@ -104,24 +105,30 @@ class UserController extends Controller
 
     public function login(Request $request)
     {
+        \Log::info('Login attempt', ['request' => $request->all(), 'method' => $request->method()]);
+    
         $credentials = $request->validate([
             'Email' => 'required|string|email',
             'Password' => 'required|string',
         ]);
-
+    
         $user = User::where('Email', $credentials['Email'])->first();
-
+    
         if (!$user || !Hash::check($credentials['Password'], $user->Password)) {
+            \Log::warning('Login failed', ['credentials' => $credentials]);
             return response(['message' => 'Unauthorized'], 401);
         }
-
+    
         $token = $user->createToken('auth_token')->plainTextToken;
-
+        \Log::info('Login successful', ['user' => $user]);
+    
         return response([
             'user' => $user,
             'token' => $token,
         ], 200);
     }
+    
+    
 
     public function logout(Request $request)
     {

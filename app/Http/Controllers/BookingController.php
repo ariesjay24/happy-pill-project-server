@@ -8,16 +8,19 @@ use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Services\SemaphoreService;
-use GuzzleHttp\Client;
+use App\Services\PayPalService;
 
 class BookingController extends Controller
 {
     protected $semaphoreService;
+    protected $payPalService;
 
-    public function __construct(SemaphoreService $semaphoreService)
+    public function __construct(SemaphoreService $semaphoreService, PayPalService $payPalService)
     {
         $this->semaphoreService = $semaphoreService;
+        $this->payPalService = $payPalService;
     }
+
     public function index()
     {
         $bookings = Booking::with(['user', 'service'])->get();
@@ -40,48 +43,45 @@ class BookingController extends Controller
             'location' => 'required|string',
             'addOns' => 'nullable|array',
         ]);
-
+    
         $userNameParts = explode(' ', $request->userName);
         $firstName = $userNameParts[0];
         $lastName = count($userNameParts) > 1 ? $userNameParts[1] : '';
-
+    
         $user = User::where('FirstName', $firstName)->where('LastName', $lastName)->firstOrFail();
         $service = Service::where('Name', $request->serviceType)->firstOrFail();
-
+    
         $totalPrice = $service->Price;
-
+    
         $addOns = [];
         if ($request->addOns) {
             $addOns = Service::whereIn('Name', $request->addOns)->get();
             foreach ($addOns as $addOn) {
                 $totalPrice += $addOn->Price;
             }
-        
-        $user = User::find($booking->UserID);
-        $message = "Thank you for your booking, {$user->FirstName}. Your booking for {$service->Name} on {$booking->BookingDate} at {$booking->BookingTime} is confirmed.";
-        $this->semaphoreService->sendSms($user->PhoneNumber, $message);
-
-        return response()->json([
-            'booking' => $booking,
-        ], 201);
-    }
-
+        }
+    
         $booking = Booking::create([
             'UserID' => $user->UserID,
             'ServiceID' => $service->ServiceID,
             'BookingDate' => $request->bookingDate,
             'BookingTime' => $request->bookingTime,
             'Location' => $request->location,
-            'AddOns' => json_encode($addOns->pluck('Name')->toArray()), // Ensure AddOns are saved as JSON
+            'AddOns' => $addOns->pluck('Name')->toJson(), // Ensure AddOns are saved as JSON
             'Price' => $totalPrice,
             'Status' => 'Pending',
             'payment_status' => 'Unpaid', // Initial payment status
         ]);
-
+    
+        $user = User::find($booking->UserID);
+        $message = "Thank you for your booking, {$user->FirstName}. Your booking for {$service->Name} on {$booking->BookingDate} at {$booking->BookingTime} is confirmed.";
+        $this->semaphoreService->sendSms($user->PhoneNumber, $message);
+    
         return response()->json([
             'booking' => $booking,
         ], 201);
     }
+    
 
     public function update(Request $request, $id)
     {
@@ -113,7 +113,7 @@ class BookingController extends Controller
         if ($request->has('AddOns')) {
             $price = $service->Price;
             foreach ($request->AddOns as $addOnName) {
-                $addOn = AddOn::where('Name', $addOnName)->first();
+                $addOn = Service::where('Name', $addOnName)->first();
                 if ($addOn) {
                     $price += $addOn->Price;
                 }
@@ -127,10 +127,10 @@ class BookingController extends Controller
         $booking->Location = $request->Location ?? $booking->Location;
         $booking->save();
 
-                // Send SMS notification after booking is updated
-                $user = User::find($booking->UserID);
-                $message = "Dear {$user->FirstName}, your booking for {$service->Name} on {$booking->BookingDate} at {$booking->BookingTime} has been updated.";
-                $this->semaphoreService->sendSms($user->PhoneNumber, $message);
+        // Send SMS notification after booking is updated
+        $user = User::find($booking->UserID);
+        $message = "Dear {$user->FirstName}, your booking for {$service->Name} on {$booking->BookingDate} at {$booking->BookingTime} has been updated.";
+        $this->semaphoreService->sendSms($user->PhoneNumber, $message);
 
         return response()->json([
             "booking" => $booking,
@@ -154,10 +154,10 @@ class BookingController extends Controller
             $booking->Status = 'Confirmed';
             $booking->save();
 
-                        // Send SMS notification after booking is confirmed
-                        $user = User::find($booking->UserID);
-                        $message = "Dear {$user->FirstName}, your booking for {$booking->service->Name} on {$booking->BookingDate} at {$booking->BookingTime} has been confirmed.";
-                        $this->semaphoreService->sendSms($user->PhoneNumber, $message);
+            // Send SMS notification after booking is confirmed
+            $user = User::find($booking->UserID);
+            $message = "Dear {$user->FirstName}, your booking for {$booking->service->Name} on {$booking->BookingDate} at {$booking->BookingTime} has been confirmed.";
+            $this->semaphoreService->sendSms($user->PhoneNumber, $message);
 
             return response()->json(['message' => 'Booking confirmed'], 200);
         } catch (\Exception $e) {
@@ -167,56 +167,68 @@ class BookingController extends Controller
 
     public function initiatePayment($id)
     {
+        Log::info("Initiate payment called for booking ID: {$id}");
         try {
             $booking = Booking::findOrFail($id);
-            $amount = $booking->Price * 100; // Convert to cents
-
-            $client = new Client();
-            $response = $client->post('https://api.paymongo.com/v1/sources', [
-                'auth' => [env('PAYMONGO_SECRET_KEY'), ''],
-                'json' => [
-                    'data' => [
-                        'attributes' => [
-                            'amount' => $amount,
-                            'redirect' => [
-                                'success' => env('PAYMENT_SUCCESS_URL'),
-                                'failed' => env('PAYMENT_FAILED_URL'),
-                            ],
-                            'type' => 'gcash',
-                            'currency' => 'PHP',
-                        ],
-                    ],
-                ],
-            ]);
-
-            $data = json_decode($response->getBody()->getContents(), true);
-
-            if (isset($data['data']['attributes']['redirect']['checkout_url'])) {
-                return response()->json(['paymentUrl' => $data['data']['attributes']['redirect']['checkout_url']]);
+            $amount = $booking->Price;
+            $currency = 'PHP'; // Change as needed
+    
+            $response = $this->payPalService->createOrder(
+                $amount,
+                $currency,
+                route('payment.callback', ['id' => $booking->BookingID]),
+                route('payment.cancel', ['id' => $booking->BookingID])
+            );
+    
+            if ($response && !empty($response->links)) {
+                foreach ($response->links as $link) {
+                    if ($link->rel == 'approve') {
+                        Log::info("PayPal payment approval URL: {$link->href}");
+                        return response()->json(['paymentUrl' => $link->href]);
+                    }
+                }
+                Log::warning('No approval URL found in PayPal response', ['response' => $response]);
+                return response()->json(['error' => 'No approval URL found in PayPal response'], 500);
             } else {
-                return response()->json(['error' => 'Failed to initiate payment'], 500);
+                Log::error('Failed to create PayPal order or response is invalid', ['response' => $response]);
+                return response()->json(['error' => 'Failed to create PayPal order'], 500);
             }
         } catch (\Exception $e) {
-            Log::error('Error initiating payment:', ['message' => $e->getMessage()]);
-            return response()->json(['error' => 'Failed to initiate payment'], 500);
+            Log::error('Error initiating PayPal payment:', ['message' => $e->getMessage(), 'stack' => $e->getTraceAsString()]);
+            return response()->json(['error' => 'Failed to initiate PayPal payment'], 500);
         }
     }
-
-    public function handlePaymentCallback(Request $request)
+    
+    
+    
+    public function handlePaymentCallback(Request $request, $id)
     {
+        Log::info('Payment callback called', ['method' => $request->getMethod(), 'id' => $id, 'query' => $request->query()]);
         try {
-            // Assuming the payment provider sends a booking ID and status
-            $bookingId = $request->input('bookingId');
-            $paymentStatus = $request->input('status');
-
-            $booking = Booking::findOrFail($bookingId);
-            $booking->payment_status = $paymentStatus;
-            $booking->save();
-
-            return response()->json(['message' => 'Payment status updated'], 200);
+            $orderId = $request->query('token'); // Ensure you're fetching the correct query parameter
+    
+            $result = $this->payPalService->captureOrder($orderId);
+    
+            if ($result) {
+                $booking = Booking::findOrFail($id);
+                $booking->payment_status = 'Paid';
+                $booking->save();
+    
+                return response()->json(['message' => 'Payment successful'], 200);
+            } else {
+                return response()->json(['error' => 'Payment failed'], 500);
+            }
         } catch (\Exception $e) {
-            Log::error('Error handling payment callback:', ['message' => $e->getMessage()]);
+            Log::error('Error handling PayPal payment callback:', ['message' => $e->getMessage(), 'stack' => $e->getTraceAsString()]);
             return response()->json(['error' => 'Failed to update payment status'], 500);
         }
     }
-}
+    
+    public function handlePaymentCancel(Request $request, $id)
+    {
+        Log::info("Payment cancellation handled for booking ID: {$id}");
+        \Log::info('Handling PayPal payment cancellation', ['booking_id' => $id]);
+        return response()->json(['message' => 'Payment cancelled'], 200);
+    }
+    
+}    

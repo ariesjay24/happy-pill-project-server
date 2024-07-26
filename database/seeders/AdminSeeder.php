@@ -18,11 +18,11 @@ class AdminSeeder extends Seeder
         User::create([
             'FirstName' => 'Jhun',
             'LastName' => 'Leowin',
-            'Email' => 'jhunleowin@gmail123.com', 
-            'PhoneNumber' => '09474863546',
-            'Password' => Hash::make('Qwerty123!'), 
+            'Email' => 'jhunleowin@gmail.com', 
+            'PhoneNumber' => '09569703817',
+            'Password' => Hash::make('Admin123!'), 
             'Role' => 'Admin',
-            'Address' => 'Cielito Homes',
+            'Address' => 'Blk 15 Lot 4 Capitol Parkland Subd. Brgy 177 Camarin 1424 Caloocan City NCR',
         ]);
     }
 }
